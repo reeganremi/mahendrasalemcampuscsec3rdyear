@@ -1,0 +1,102 @@
+<?php
+// Submit a new complaint (student only). Initial status is ALWAYS 'Pending' (server-side).
+require_once __DIR__ . '/config/database.php';
+require_once __DIR__ . '/includes/student_auth.php';
+
+$errors = [];
+$old = ['category' => '', 'subject' => '', 'description' => '', 'location' => ''];
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!verify_csrf($_POST['csrf_token'] ?? null)) {
+        $errors['general'] = 'Security check failed. Please reload and try again.';
+    } else {
+        $category    = trim($_POST['category'] ?? '');
+        $subject     = trim($_POST['subject'] ?? '');
+        $description = trim($_POST['description'] ?? '');
+        $location    = trim($_POST['location'] ?? '');
+        $old = ['category' => $category, 'subject' => $subject, 'description' => $description, 'location' => $location];
+
+        if ($category === '' || !is_valid_category($category)) $errors['category'] = 'Please choose a valid category.';
+        if ($subject === '') $errors['subject'] = 'Subject is required.';
+        elseif (mb_strlen($subject) < 5) $errors['subject'] = 'Subject must be at least 5 characters.';
+        elseif (mb_strlen($subject) > 200) $errors['subject'] = 'Subject is too long (max 200 characters).';
+        if ($description === '') $errors['description'] = 'Please describe the issue in detail.';
+        elseif (mb_strlen($description) < 10) $errors['description'] = 'Description must be at least 10 characters.';
+        if ($location !== '' && mb_strlen($location) > 150) $errors['location'] = 'Location is too long (max 150 characters).';
+
+        if (!$errors) {
+            $uid = (int)$_SESSION['user_id'];
+            $locParam = $location === '' ? null : $location;
+            $stmt = $conn->prepare("INSERT INTO complaints (user_id, category, subject, description, location, status) VALUES (?, ?, ?, ?, ?, 'Pending')");
+            $stmt->bind_param('issss', $uid, $category, $subject, $description, $locParam);
+            $stmt->execute();
+            $newId = $stmt->insert_id;
+            $stmt->close();
+            set_flash('Complaint ' . complaint_ref($newId) . ' submitted successfully!', 'success');
+            redirect(BASE_URL . '/complaint_details.php?id=' . $newId);
+        }
+    }
+}
+
+$page_title = 'Submit Complaint';
+$page_subtitle = 'Give clear details — it helps the admin team resolve faster.';
+$active = 'submit';
+require_once __DIR__ . '/includes/header.php';
+?>
+
+<div class="form-layout">
+  <form class="card form-card" method="post" action="<?= BASE_URL ?>/submit_complaint.php" id="complaintForm" novalidate>
+    <?= csrf_field() ?>
+    <h2><i class="fa-solid fa-pen-to-square"></i> New complaint</h2>
+    <?php if (!empty($errors['general'])): ?><div class="alert alert-error"><?= e($errors['general']) ?></div><?php endif; ?>
+
+    <label class="field"><span>Category <b>*</b></span>
+      <select name="category" required>
+        <option value="">— Select a category —</option>
+        <?php foreach (complaint_categories() as $cat): ?>
+          <option value="<?= e($cat) ?>" <?= $old['category'] === $cat ? 'selected' : '' ?>><?= e($cat) ?></option>
+        <?php endforeach; ?>
+      </select>
+      <?php if (!empty($errors['category'])): ?><em class="f-error"><?= e($errors['category']) ?></em><?php endif; ?>
+    </label>
+
+    <label class="field"><span>Subject <b>*</b></span>
+      <input type="text" name="subject" maxlength="200" placeholder="e.g. Hostel Block B — no water supply since morning" value="<?= e($old['subject']) ?>" required>
+      <?php if (!empty($errors['subject'])): ?><em class="f-error"><?= e($errors['subject']) ?></em><?php endif; ?>
+    </label>
+
+    <label class="field"><span>Location / Department <span class="opt">(optional)</span></span>
+      <input type="text" name="location" maxlength="150" placeholder="e.g. Block B, Room 204 / CSE Lab 3" value="<?= e($old['location']) ?>">
+      <?php if (!empty($errors['location'])): ?><em class="f-error"><?= e($errors['location']) ?></em><?php endif; ?>
+    </label>
+
+    <label class="field"><span>Detailed description <b>*</b></span>
+      <textarea name="description" rows="6" placeholder="What happened, when, where, and who is affected…" required><?= e($old['description']) ?></textarea>
+      <?php if (!empty($errors['description'])): ?><em class="f-error"><?= e($errors['description']) ?></em><?php endif; ?>
+      <small class="hint">Minimum 10 characters. Avoid sharing passwords or OTPs.</small>
+    </label>
+
+    <div class="form-actions">
+      <a class="btn btn-ghost" href="<?= BASE_URL ?>/dashboard.php">Cancel</a>
+      <button class="btn btn-primary" type="submit"><i class="fa-solid fa-paper-plane"></i> Submit complaint</button>
+    </div>
+  </form>
+
+  <aside class="card help-card">
+    <h3><i class="fa-solid fa-lightbulb"></i> Tips for faster resolution</h3>
+    <ul>
+      <li>Choose the closest category so it reaches the right team.</li>
+      <li>Mention block / room / lab number in the location field.</li>
+      <li>One issue per complaint tracks more cleanly than bundling many.</li>
+      <li>You can follow status anytime under <a href="<?= BASE_URL ?>/my_complaints.php">My Complaints</a>.</li>
+    </ul>
+    <div class="status-legend">
+      <p><span class="badge badge-pending">Pending</span> just submitted</p>
+      <p><span class="badge badge-progress">In Progress</span> admin is working on it</p>
+      <p><span class="badge badge-resolved">Resolved</span> fixed &amp; confirmed</p>
+      <p><span class="badge badge-closed">Closed</span> archived</p>
+    </div>
+  </aside>
+</div>
+
+<?php require_once __DIR__ . '/includes/footer.php'; ?>

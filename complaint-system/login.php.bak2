@@ -1,0 +1,109 @@
+<?php
+// Login for both students and admins (role comes from DB, never from the form).
+if (session_status() === PHP_SESSION_NONE) { session_start(); }
+require_once __DIR__ . '/config/database.php';
+require_once __DIR__ . '/includes/functions.php';
+
+if (is_logged_in()) {
+    redirect($_SESSION['user_role'] === 'admin' ? BASE_URL . '/admin/dashboard.php' : BASE_URL . '/dashboard.php');
+}
+
+$error = '';
+$info = '';
+if (isset($_GET['registered'])) $info = 'Account created! Please log in with your new credentials.';
+if (isset($_GET['deactivated'])) $error = 'Your account has been deactivated. Please contact the administration.';
+if ($f = get_flash()) { if ($f['type'] === 'success') $info = $f['message']; else $error = $f['message']; }
+$oldEmail = '';
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!verify_csrf($_POST['csrf_token'] ?? null)) {
+        $error = 'Security check failed. Please reload and try again.';
+    } else {
+        $email = trim($_POST['email'] ?? '');
+        $pass  = $_POST['password'] ?? '';
+        $oldEmail = $email;
+
+        if ($email === '' || $pass === '') {
+            $error = 'Please enter both email and password.';
+        } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $error = 'Please enter a valid email address.';
+        } else {
+            // Prepared statement — never interpolate user input into SQL.
+            $stmt = $conn->prepare('SELECT id, name, email, password, role, is_active FROM users WHERE email = ? LIMIT 1');
+            $stmt->bind_param('s', $email);
+            $stmt->execute();
+            $user = $stmt->get_result()->fetch_assoc();
+            $stmt->close();
+
+            if (!$user || !password_verify($pass, $user['password'])) {
+                $error = 'Invalid email or password.';
+            } elseif ((int)$user['is_active'] === 0) {
+                $error = 'Your account has been deactivated. Please contact the administration.';
+            } else {
+                // Success — regenerate session ID to prevent fixation.
+                session_regenerate_id(true);
+                $_SESSION['user_id']   = (int)$user['id'];
+                $_SESSION['user_name'] = $user['name'];
+                $_SESSION['user_role'] = $user['role'];
+                // CSRF token rotation per session
+                $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+                set_flash('Welcome back, ' . $user['name'] . '!', 'success');
+
+                $next = $_SESSION['redirect_after_login'] ?? null;
+                unset($_SESSION['redirect_after_login']);
+                if ($next && str_starts_with($next, BASE_URL)) { redirect($next); }
+                redirect($user['role'] === 'admin' ? BASE_URL . '/admin/dashboard.php' : BASE_URL . '/dashboard.php');
+            }
+        }
+    }
+}
+?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Login · ResolveDesk</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+<link rel="stylesheet" href="<?= BASE_URL ?>/css/style.css">
+<link rel="stylesheet" href="<?= BASE_URL ?>/css/auth.css">
+<link rel="stylesheet" href="<?= BASE_URL ?>/css/responsive.css">
+</head>
+<body class="auth-body">
+<div class="auth-wrap">
+  <div class="auth-side">
+    <a class="brand" href="<?= BASE_URL ?>/index.php"><span class="brand-mark"><i class="fa-solid fa-comments"></i></span><span class="brand-text"><span class="brand-name">ResolveDesk</span><span class="brand-sub">College Complaints</span></span></a>
+    <h1>Welcome back</h1>
+    <p>Log in to submit new complaints or follow your existing ones to resolution.</p>
+    <div class="demo-box">
+      <p><strong>Demo accounts</strong> (after importing database.sql)</p>
+      <code>admin@college.edu · Admin@123</code>
+      <code>student@college.edu · Student@123</code>
+    </div>
+  </div>
+  <div class="auth-main">
+    <div class="auth-card">
+      <h2>Login</h2>
+      <p class="muted">Use your registered email and password.</p>
+      <?php if ($info): ?><div class="alert alert-success"><?= e($info) ?></div><?php endif; ?>
+      <?php if ($error): ?><div class="alert alert-error"><?= e($error) ?></div><?php endif; ?>
+      <form method="post" action="<?= BASE_URL ?>/login.php" id="loginForm" novalidate>
+        <?= csrf_field() ?>
+        <label class="field"><span>Email address</span>
+          <input type="email" name="email" value="<?= e($oldEmail) ?>" placeholder="you@college.edu" required>
+        </label>
+        <label class="field"><span>Password</span>
+          <span class="pass-wrap"><input type="password" name="password" id="loginPass" placeholder="Your password" required><button type="button" class="pass-toggle" data-target="loginPass" aria-label="Show password"><i class="fa-regular fa-eye"></i></button></span>
+        </label>
+        <button class="btn btn-primary btn-block" type="submit"><i class="fa-solid fa-right-to-bracket"></i> Login</button>
+      </form>
+      <p class="auth-switch">New here? <a href="<?= BASE_URL ?>/register.php">Create a student account</a></p>
+      <p class="auth-back"><a href="<?= BASE_URL ?>/index.php"><i class="fa-solid fa-arrow-left"></i> Back to home</a></p>
+    </div>
+  </div>
+</div>
+<div class="toast-wrap" id="toastWrap"></div>
+<script src="<?= BASE_URL ?>/js/app.js"></script>
+<script src="<?= BASE_URL ?>/js/validation.js"></script>
+</body>
+</html>

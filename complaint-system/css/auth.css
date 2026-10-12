@@ -1,0 +1,23 @@
+/* Auth pages: split-screen login/register (auth.css) */
+.auth-body{background:var(--bg);min-height:100vh;display:flex}
+.auth-wrap{display:grid;grid-template-columns:1fr 1.1fr;min-height:100vh;width:100%}
+.auth-side{background:linear-gradient(150deg,#1e1b4b 0%,#4338ca 60%,#6d28d9 100%);color:#fff;padding:48px;display:flex;flex-direction:column;justify-content:center;position:relative;overflow:hidden}
+.auth-side::after{content:'';position:absolute;width:420px;height:420px;border-radius:50%;background:rgba(255,255,255,.07);right:-140px;top:-140px}
+.auth-side::before{content:'';position:absolute;width:300px;height:300px;border-radius:50%;background:rgba(255,255,255,.05);left:-100px;bottom:-100px}
+.auth-side .brand{color:#fff;margin-bottom:30px;position:relative;z-index:1}
+.auth-side .brand-name{color:#fff}.auth-side .brand-sub{color:#c7d2fe}
+.auth-side .brand-mark{background:rgba(255,255,255,.16);box-shadow:none}
+.auth-side h1{font-size:34px;margin-bottom:12px;position:relative;z-index:1}
+.auth-side p{color:#c7d2fe;max-width:42ch;position:relative;z-index:1}
+.auth-points{list-style:none;margin:26px 0 0;padding:0;display:flex;flex-direction:column;gap:12px;position:relative;z-index:1}
+.auth-points li{display:flex;gap:10px;align-items:center;font-weight:600;font-size:14.5px}
+.auth-points i{background:rgba(255,255,255,.16);width:28px;height:28px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:13px}
+.demo-box{margin-top:28px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:12px;padding:15px 17px;position:relative;z-index:1}
+.demo-box p{margin:0 0 8px;font-size:13px;color:#e0e7ff}
+.demo-box code{display:block;background:rgba(0,0,0,.28);color:#fff;border-radius:8px;padding:7px 11px;margin-top:6px;font-size:12.5px}
+.auth-main{display:flex;align-items:center;justify-content:center;padding:40px 28px}
+.auth-card{width:100%;max-width:480px;background:#fff;border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);padding:34px}
+.auth-card h2{font-size:24px;margin-bottom:4px}
+.auth-card .muted{font-size:14px;margin:0 0 20px}
+.auth-switch{text-align:center;font-size:14px;margin:20px 0 6px}
+.auth-back{text-align:center;font-size:13px;margin:0}

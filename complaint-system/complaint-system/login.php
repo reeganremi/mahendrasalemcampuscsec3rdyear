@@ -1,0 +1,11 @@
+<?php
+session_start(); $err='';
+if($_SERVER['REQUEST_METHOD']=='POST'){
+ $email=strtolower(trim($_POST['email']??'')); $pass=trim($_POST['password']??'');
+ $data=json_decode(file_get_contents(__DIR__.'/fake_db.json'),true);
+ $found=null; foreach($data['users'] as $u){ if(strtolower($u['email'])==$email && $u['password']==$pass){ $found=$u; break; } }
+ if($found){ $_SESSION['user_id']=$found['id']; $_SESSION['user_name']=$found['name']; $_SESSION['role']=$found['role']; header('Location: '.($found['role']=='admin'?'admin_dashboard.php':'dashboard.php')); exit; }
+ else $err='Invalid login!';
+}
+?>
+<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Login - ResolveDesk</title><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet"><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Inter,sans-serif;background:#f1f4f9;display:flex;align-items:center;justify-content:center;min-height:100vh}.card{background:#fff;border-radius:16px;padding:28px;width:100%;max-width:360px;border:1px solid #eef0f4}input{width:100%;padding:11px;border:1px solid #e5e7eb;border-radius:10px;margin-top:6px}label{font-size:12px;font-weight:600;margin-top:12px;display:block}.btn{width:100%;padding:12px;background:#5a4cf1;color:#fff;border:0;border-radius:10px;font-weight:600;margin-top:16px}</style></head><body><div class="card"><div style="text-align:center;margin-bottom:16px"><div style="width:44px;height:44px;background:#5a4cf1;border-radius:12px;margin:0 auto 8px;display:flex;align-items:center;justify-content:center;color:#fff">💬</div><b>ResolveDesk - College Complaints</b></div><?php if($err) echo '<div style="background:#fef2f2;color:#991b1b;padding:8px;border-radius:8px;font-size:12px;margin-bottom:10px">'.$err.'</div>'; ?><form method="POST"><label>Email</label><input type="email" name="email" value="student@college.edu" required><label>Password</label><input type="password" name="password" value="Student@123" required><button class="btn">Login</button></form><div style="margin-top:12px;font-size:11px;color:#6b7280;background:#f9fafb;padding:10px;border-radius:8px">Student: student@college.edu / Student@123<br>Admin: admin@college.edu / Admin@123</div></div></body></html>

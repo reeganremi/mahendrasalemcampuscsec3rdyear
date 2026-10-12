@@ -1,0 +1,93 @@
+<?php
+// Complaint details (student view) — strict ownership check.
+require_once __DIR__ . '/config/database.php';
+require_once __DIR__ . '/includes/student_auth.php';
+
+$id = (int)($_GET['id'] ?? 0);
+if ($id <= 0) { set_flash('Invalid complaint reference.', 'error'); redirect(BASE_URL . '/my_complaints.php'); }
+
+$uid = (int)$_SESSION['user_id'];
+$stmt = $conn->prepare("SELECT c.*, u.name AS student_name FROM complaints c JOIN users u ON u.id = c.user_id WHERE c.id = ? AND c.is_deleted = 0 LIMIT 1");
+$stmt->bind_param('i', $id);
+$stmt->execute();
+$complaint = $stmt->get_result()->fetch_assoc();
+$stmt->close();
+
+if (!$complaint) { set_flash('Complaint not found.', 'error'); redirect(BASE_URL . '/my_complaints.php'); }
+// Ownership: students may ONLY view their own complaints.
+if ((int)$complaint['user_id'] !== $uid) {
+    http_response_code(403);
+    exit('Forbidden: this complaint belongs to another student.');
+}
+
+// History timeline (status changes).
+$stmt = $conn->prepare("SELECT h.old_status, h.new_status, h.comment, h.created_at, u.name AS admin_name FROM complaint_history h LEFT JOIN users u ON u.id = h.admin_id WHERE h.complaint_id = ? ORDER BY h.created_at ASC");
+$stmt->bind_param('i', $id);
+$stmt->execute();
+$history = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+$stmt->close();
+
+// Step indicator: 0 Pending → 1 In Progress → 2 Resolved/Closed
+$stage = ['Pending' => 0, 'In Progress' => 1, 'Resolved' => 2, 'Closed' => 2][$complaint['status']] ?? 0;
+
+$page_title = complaint_ref($complaint['id']);
+$page_subtitle = $complaint['subject'];
+$active = 'my';
+require_once __DIR__ . '/includes/header.php';
+?>
+
+<a class="back-link" href="<?= BASE_URL ?>/my_complaints.php"><i class="fa-solid fa-arrow-left"></i> Back to My Complaints</a>
+
+<div class="detail-grid">
+  <div class="card panel">
+    <div class="detail-head">
+      <span class="badge <?= e(status_badge_class($complaint['status'])) ?> badge-lg"><?= e($complaint['status']) ?></span>
+      <span class="cat-pill"><?= e($complaint['category']) ?></span>
+    </div>
+    <h2 class="detail-subject"><?= e($complaint['subject']) ?></h2>
+    <div class="meta-row">
+      <span><i class="fa-regular fa-calendar"></i> Filed <?= e(date('M j, Y · h:i A', strtotime($complaint['created_at']))) ?></span>
+      <span><i class="fa-solid fa-rotate"></i> Updated <?= e(time_ago($complaint['updated_at'])) ?></span>
+      <?php if (!empty($complaint['location'])): ?><span><i class="fa-solid fa-location-dot"></i> <?= e($complaint['location']) ?></span><?php endif; ?>
+    </div>
+    <div class="steps-line">
+      <?php $labels = ['Submitted', 'In Progress', 'Resolved']; foreach ($labels as $i => $label): ?>
+        <div class="step<?= $i <= $stage ? ' done' : '' ?>"><span class="dot"><?= $i < $stage ? '<i class="fa-solid fa-check"></i>' : ($i + 1) ?></span><span><?= $label ?></span></div>
+        <?php if ($i < 2): ?><div class="line<?= $i < $stage ? ' done' : '' ?>"></div><?php endif; ?>
+      <?php endforeach; ?>
+    </div>
+    <h3>Description</h3>
+    <p class="desc"><?= nl2br(e($complaint['description'])) ?></p>
+    <h3><i class="fa-solid fa-message"></i> Administrative response</h3>
+    <?php if (!empty($complaint['admin_response'])): ?>
+      <div class="admin-reply"><?= nl2br(e($complaint['admin_response'])) ?></div>
+    <?php else: ?>
+      <div class="empty-sm"><i class="fa-regular fa-hourglass"></i> No response yet — the admin team will reply here once reviewed.</div>
+    <?php endif; ?>
+  </div>
+
+  <aside class="side-stack">
+    <div class="card panel">
+      <h2><i class="fa-solid fa-timeline"></i> Status history</h2>
+      <?php if (!$history): ?><p class="muted">No updates yet. Your complaint is in the review queue.</p>
+      <?php else: ?>
+      <ul class="timeline">
+        <li><span class="t-dot start"></span><div><strong>Submitted as Pending</strong><small><?= e(date('M j, Y h:i A', strtotime($complaint['created_at']))) ?></small></div></li>
+        <?php foreach ($history as $h): ?>
+        <li><span class="t-dot"></span><div>
+          <strong><?= $h['old_status'] ? e($h['old_status'] . ' → ' . $h['new_status']) : e($h['new_status']) ?></strong>
+          <small>by <?= e($h['admin_name'] ?? 'Admin') ?> · <?= e(date('M j, Y h:i A', strtotime($h['created_at']))) ?></small>
+          <?php if (!empty($h['comment'])): ?><p><?= e($h['comment']) ?></p><?php endif; ?>
+        </div></li>
+        <?php endforeach; ?>
+      </ul>
+      <?php endif; ?>
+    </div>
+    <div class="card panel ref-card">
+      <p class="muted">Reference</p><p class="mono big"><?= e(complaint_ref($complaint['id'])) ?></p>
+      <p class="muted">Quote this number in any follow-up with the office.</p>
+    </div>
+  </aside>
+</div>
+
+<?php require_once __DIR__ . '/includes/footer.php'; ?>

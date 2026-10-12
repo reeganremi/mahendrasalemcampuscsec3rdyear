@@ -1,0 +1,95 @@
+<?php
+// Student dashboard — all stats from the logged-in student's own rows.
+require_once __DIR__ . '/config/database.php';
+require_once __DIR__ . '/includes/student_auth.php';
+
+$uid = (int)$_SESSION['user_id'];
+
+// Counts by status (single GROUP BY query).
+$counts = ['total' => 0, 'Pending' => 0, 'In Progress' => 0, 'Resolved' => 0, 'Closed' => 0];
+$stmt = $conn->prepare("SELECT status, COUNT(*) AS c FROM complaints WHERE user_id = ? AND is_deleted = 0 GROUP BY status");
+$stmt->bind_param('i', $uid);
+$stmt->execute();
+$res = $stmt->get_result();
+while ($row = $res->fetch_assoc()) {
+    $counts[$row['status']] = (int)$row['c'];
+    $counts['total'] += (int)$row['c'];
+}
+$stmt->close();
+
+// Recent 5 complaints.
+$stmt = $conn->prepare("SELECT id, category, subject, status, created_at FROM complaints WHERE user_id = ? AND is_deleted = 0 ORDER BY created_at DESC LIMIT 5");
+$stmt->bind_param('i', $uid);
+$stmt->execute();
+$recent = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+$stmt->close();
+
+// Category distribution for this student.
+$catDist = [];
+$stmt = $conn->prepare("SELECT category, COUNT(*) AS c FROM complaints WHERE user_id = ? AND is_deleted = 0 GROUP BY category ORDER BY c DESC LIMIT 6");
+$stmt->bind_param('i', $uid);
+$stmt->execute();
+$catDist = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+$stmt->close();
+$maxCat = 0;
+foreach ($catDist as $c) { $maxCat = max($maxCat, (int)$c['c']); }
+
+$page_title = 'Dashboard';
+$page_subtitle = 'Welcome back, ' . $_SESSION['user_name'] . ' — here is your complaint overview.';
+$active = 'dashboard';
+require_once __DIR__ . '/includes/header.php';
+?>
+
+<div class="stat-grid">
+  <div class="stat-card"><div class="stat-icon si-total"><i class="fa-solid fa-layer-group"></i></div><div><p class="stat-label">Total submitted</p><p class="stat-value"><?= (int)$counts['total'] ?></p></div></div>
+  <div class="stat-card"><div class="stat-icon si-pending"><i class="fa-solid fa-hourglass-half"></i></div><div><p class="stat-label">Pending</p><p class="stat-value"><?= (int)$counts['Pending'] ?></p></div></div>
+  <div class="stat-card"><div class="stat-icon si-progress"><i class="fa-solid fa-spinner"></i></div><div><p class="stat-label">In Progress</p><p class="stat-value"><?= (int)$counts['In Progress'] ?></p></div></div>
+  <div class="stat-card"><div class="stat-icon si-resolved"><i class="fa-solid fa-circle-check"></i></div><div><p class="stat-label">Resolved</p><p class="stat-value"><?= (int)($counts['Resolved'] + $counts['Closed']) ?></p></div></div>
+</div>
+
+<div class="panel-grid">
+  <div class="card panel">
+    <div class="panel-head"><h2><i class="fa-solid fa-clock-rotate-left"></i> Recent complaints</h2><a class="link" href="<?= BASE_URL ?>/my_complaints.php">View all <i class="fa-solid fa-arrow-right"></i></a></div>
+    <?php if (!$recent): ?>
+      <div class="empty"><div class="empty-icon"><i class="fa-regular fa-folder-open"></i></div><h3>No complaints yet</h3><p>File your first complaint and it will appear here with live status.</p><a class="btn btn-primary" href="<?= BASE_URL ?>/submit_complaint.php"><i class="fa-solid fa-plus"></i> Submit New Complaint</a></div>
+    <?php else: ?>
+      <div class="table-wrap"><table class="table">
+        <thead><tr><th>Ref</th><th>Subject</th><th>Category</th><th>Status</th><th>Date</th><th></th></tr></thead>
+        <tbody>
+        <?php foreach ($recent as $c): ?>
+          <tr>
+            <td class="mono"><?= e(complaint_ref($c['id'])) ?></td>
+            <td><strong><?= e(mb_strimwidth($c['subject'], 0, 42, '…')) ?></strong></td>
+            <td><span class="cat-pill"><?= e($c['category']) ?></span></td>
+            <td><span class="badge <?= e(status_badge_class($c['status'])) ?>"><?= e($c['status']) ?></span></td>
+            <td class="muted"><?= e(date('M j, Y', strtotime($c['created_at']))) ?></td>
+            <td><a class="btn btn-ghost btn-sm" href="<?= BASE_URL ?>/complaint_details.php?id=<?= (int)$c['id'] ?>">View</a></td>
+          </tr>
+        <?php endforeach; ?>
+        </tbody>
+      </table></div>
+    <?php endif; ?>
+  </div>
+
+  <div class="side-stack">
+    <div class="card panel cta-card">
+      <h2>Need to report an issue?</h2>
+      <p class="muted">Describe it once — we timestamp it and notify the right team.</p>
+      <a class="btn btn-primary btn-block" href="<?= BASE_URL ?>/submit_complaint.php"><i class="fa-solid fa-pen-to-square"></i> Submit New Complaint</a>
+      <ol class="mini-steps">
+        <li><strong>1.</strong> Submit with category &amp; details</li>
+        <li><strong>2.</strong> Admin reviews &amp; responds</li>
+        <li><strong>3.</strong> Track to Resolved / Closed</li>
+      </ol>
+    </div>
+    <div class="card panel">
+      <div class="panel-head"><h2><i class="fa-solid fa-chart-pie"></i> By category</h2></div>
+      <?php if (!$catDist): ?><p class="muted">No data yet.</p>
+      <?php else: foreach ($catDist as $c): $pct = $maxCat ? round($c['c'] / $maxCat * 100) : 0; ?>
+        <div class="bar-row"><div class="bar-top"><span><?= e($c['category']) ?></span><strong><?= (int)$c['c'] ?></strong></div><div class="bar"><div style="width:<?= (int)$pct ?>%"></div></div></div>
+      <?php endforeach; endif; ?>
+    </div>
+  </div>
+</div>
+
+<?php require_once __DIR__ . '/includes/footer.php'; ?>

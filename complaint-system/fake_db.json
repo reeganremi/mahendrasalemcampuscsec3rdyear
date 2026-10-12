@@ -1,0 +1,79 @@
+{
+    "users": [
+        {
+            "id": 1,
+            "name": "Gill",
+            "email": "gill@college.edu",
+            "password": "$2y$12$WcSBmWEIc8VBSCy4rDWp5enNpwY.omenUu4OpftsJrV39.cUWK2mG",
+            "role": "student"
+        },
+        {
+            "id": 2,
+            "name": "Student User",
+            "email": "student@college.edu",
+            "password": "$2y$12$5Y6Ojgk42cWJrY3bxhLLXeoMOatMrKn0qLYWnPpMFua9zAsNZ37X.",
+            "role": "student"
+        },
+        {
+            "id": 999,
+            "name": "Administrator",
+            "email": "admin@college.edu",
+            "password": "$2y$12$Pp0GlJcahfEcrdC3858klO7gTJXWD8tluSRfP2cQ3YYCQWMrKVBz6",
+            "role": "admin"
+        }
+    ],
+    "complaints": [
+        {
+            "id": 1,
+            "user_id": 2,
+            "user_name": "Student User",
+            "category": "Academics",
+            "subject": "zddfgty",
+            "location": "Block A",
+            "description": "Academic test",
+            "status": "Pending",
+            "admin_response": "",
+            "history": [],
+            "created_at": "2026-10-09 22:36:00"
+        },
+        {
+            "id": 2,
+            "user_id": 2,
+            "user_name": "Student User",
+            "category": "Hostel",
+            "subject": "sapadu problem",
+            "location": "Hostel Block",
+            "description": "Food issue",
+            "status": "Closed",
+            "admin_response": "Fixed",
+            "history": [],
+            "created_at": "2026-10-09 22:37:00"
+        },
+        {
+            "id": 3,
+            "user_id": 2,
+            "user_name": "Student User",
+            "category": "Hostel",
+            "subject": "tyklkjhuioplakdjisd",
+            "location": "jkdfijsd\/f\/sdlf\/",
+            "description": "jhsdkfi;iskfjsdof",
+            "status": "Pending",
+            "admin_response": "",
+            "history": [],
+            "created_at": "2026-10-09 22:38:00"
+        },
+        {
+            "id": 4,
+            "user_id": 2,
+            "user_name": "Student User",
+            "category": "Food",
+            "subject": "college management  related",
+            "location": "salem",
+            "description": "cd \/home\/workspace\/my-project\/complaint-system\r\n\r\n# 1. My Complaints - BEAUTIFUL + SECURE + DETAILS\r\ncat &gt; my_complaints.php &lt;&lt; &#039;PHP&#039;\r\n&lt;?php\r\nsession_start();\r\nheader(&quot;X-Frame-Options: DENY&quot;);\r\nif(!isset($_SESSION[&#039;user_id&#039;]) || !isset($_SESSION[&#039;login_time&#039;])){ header(&#039;Location: login.php&#039;); exit; }\r\nif(time() - $_SESSION[&#039;login_time&#039;] &gt; 3600){ session_destroy(); header(&#039;Location: login.php&#039;); exit; }\r\n$_SESSION[&#039;login_time&#039;]=time();\r\n$data=json_decode(file_get_contents(__DIR__.&#039;\/fake_db.json&#039;),true);",
+            "status": "In Progress",
+            "admin_response": "ok dear ",
+            "history": [],
+            "created_at": "2026-10-12 06:45:17"
+        }
+    ]
+}
